@@ -1,5 +1,7 @@
 The files in this respository were used to build several types of Strassner Editing Systems videotape edit controllers.
 
+The were created for PC XTs running MSDOS V5 or greater.  This code has been re-written in C++ for Microsoft Windows, which will be uploaded to a differenct repository.
+
 Strassner Editing Systems (SES) was a line of PC-based linear "CMX style" keyboard video editing controllers invented in 1988 by Norman H. Strassner in Los Angeles, California. Over 400 systems were sold up to the time, in 1995, that Strassner sold the company to a San Jose-based company - Videomedia, Inc., makers of the "V-LAN" hardware he used to physically control video tape machines (VTRs), video and audio switchers and special effects devices.
 
 At the time I wrote the software, I was a working editor in Hollywood for shows like Entertainment Tonight and Real People, and companies like Paramount Pictures, CBS, NBC and Smith-Hemion.
