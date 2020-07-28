@@ -1,0 +1,287 @@
+; Last revised: 2-22-1995, 11:12:23   (C)1989-1995 Norman H. Strassner
+; VMVER.EQU
+%nolist
+
+
+V = 800
+
+v1 = (V / 100)
+v2 = (V - (v1 * 100)) / 10
+v3 = V - (v1 * 100) - (v2 * 10)
+v1 = v1 + "0"
+v2 = v2 + "0"
+v3 = v3 + "0"
+
+;===========================================================================
+; Version 7.40	-Added preview switcher
+;
+; Version 7.36	-Selects preset black after edit for for audio mixers
+; Version 7.35	-Repaired GPI triggering when GPI > 16 (wasn't fixed yet)
+; Version 7.34	-Repaired GPI triggering when GPI > 16
+;
+; Version 7.33	-Fixed problem with hot switch mode where wrong VTR gets
+;		 picked for first edit.
+;
+; Version 7.32	-Fixed Auto Transition for ESAM mixers under V-LAN control
+;
+; Version 7.31	-Changed "VP" variable play for Jogging to "HS" high
+;		 resolution shuttle for better VTR compatibility.
+;		-Change "VP+60" twice speed play to "HS+20" for better
+;		 VTR compatibility.
+; 10-03-1995 
+; Version 7.30	-Removed GetVlanColorFrame routine (not needed)
+; 9-29-1995 	 System color frame now properly saved with default file.
+;		-Found very old non-fatal bug (since Ver. 3) that overwrote
+;		 part of message segment when shelling to DOS.  This bug was
+;		 caused by the DTA not being reset to DS:80h for DOS services
+;		 that write to the DTA (like findfirst, etc.).
+;		-Repaired fatal bug in aux switcher toggle.  Near call
+;		 was improperly cast as FAR causing a bad return and occasional
+;		 crash when returing from from SwapVideoSwitcherPorts routine.
+;		-Removed CPU type and speed detection.  Hasn't been used for
+;		 anything for two Revs. (speed detection used to be used to
+;		 calculate delay loops.  Delay loops are now timer code-based).
+;		-Removed CPU and BIN status messages from startup screen and
+;		 from INSTALL 19.
+;		-Reconfigured signon "about" message
+;		-Removed option from INSTALL 19 to turn off VIRTUAL MEMORY.
+;		 SES will always save memory to a disk file before shelling
+;		 to DOS or running any external program.
+;
+; Version 7.23	-Repaired error in real time mode edit saves.
+; Version 7.22	-Made video and audio switcher ports user assignable
+;			-Added switch to toggle between two video switchers
+; Version 7.21	-Added Sorted/Unsorted EDL option in Install #20
+;		-Added Reel Name Change for Fast Fix menu
+; Version 7.20	-Fixed Variable speeds for master/slave devices
+; Version 7.19	-Fixed Vlan4 KEY, added ALT-VIDEO switcher allstop
+; Version 7.18	-Gave the ESAM audio routines it own M/E address
+; Version 7.17	-Fixed GPI point and shoot selection
+; Version 7.16	-Added ROSS switcher wipe codes
+; Version 7.15	-Repaired bad numbering scheme in EDITSTATUSIS_xxxx
+;		-Prevented Preread from being turned off after a preview
+; Version 7.14	-Repaired access to GPI0
+; Version 7.11	-Allow gpi triggers > preroll
+; Version 7.10	-Completely re-wrote edit routine to use edit clock
+;		 and edit status.
+; Version 7.09	-Added cue track enabling
+; Version 7.08	-Fixed video GPI trigger offset bug
+; Version 7.07	-Fixed disabling of edits for both ^W and auto assemblies
+; Version 7.06	-Changed direct auto trans for duration
+; Version 7.05	-Allowed for gpi constant offsets
+; Version 7.04	-Added code to select proper ME bank for GPI auto trans
+; Version 7.03	-Added mem bufs for FTB and DSK durations
+;
+; Version 7.02	-?????????
+; Version 7.01
+;		-Added ability to address M/E bank for EMEMs
+;
+;4-01-1994 (version 7 begins)
+; Version 7.00	-Added sorted directories.
+;		-Moved a bunch of code to BSEG to make room for 4.0 VLAN code
+;		-Changed cueing routine to wait for "READY" as an EDIT STATUS
+;		 instead of waiting for all VTRs to have "READY" status
+;		-Changed some routines so phantom VTRs are treated like AUX
+;		 or black devices.
+;		-Added VTR LOOK AHEAD and changed INSTALL 12 menu for it
+;		-Added checking for black reference and display on status line
+;		-Removed "Used/Free display option".  Now always displays
+;		 used EDL lines information
+;		-Added Auto Detection of V-LAN network
+;		-Ripple ALL source reels by entering an asterisk "*" at
+;		 the ripple for which reel name prompt
+;		-Automatically sorts GPI relay triggers before sending to
+;		 VLAN.
+;		-Added RAMP SPEED CHANGE
+
+;4.00	First release
+;
+;4.01	Fixed split edit
+;	Fixed SLAVE recall so outpoints were correctly recalled
+;
+;4.02	Fixed MOD24HRS routine
+;
+;4.12	SPLIT: lines at the top of the file will now be deleted
+;	REPAIRED DIRECTORY LISTINGS.  MAX EDL FILES ON EACH SUBDIRECTORY IS 254
+;	REPAIRED BVB PREVIEWS
+;	REPAIRED NEGATIVE GPI OFFSET CALCULATIONS
+;
+; Version 512, added PYXIS special wipe code table
+; Version 513, Fixed B mode assembly NHS
+; Version 514, Fixed ESAMII interface for JL Cooper
+; Version 515, Added the AMX170
+
+; Version 6.01, 10-17-93, Fixed jogger interrupt routines for AT interupts
+; Version 6.10, Added FO color framing command
+; Version 6.11, Fixed FO color framing command (#$%!$#!!@#%)
+;		Also fixed install menu problem of divide overflow when
+;		using "Y" in response to a YES NO toggle.
+; Version 6.12, Fixed color framing by re-enabling software TC adjust
+; Version 6.13, Added provision for EDL lists with CR only (no CRLF pair)
+; Version 6.14, Fixed bug that caused a GPI trigger to sendout a VLAN
+;		switcher trigger TOO!
+; Version 6.15	Changed default COM port settings for internal cards
+;
+; Version 6.20  Fixed switcher routines to properly setup vlan switcher
+;		audio records for ESAM devices.
+;		Also repaired BREAK character recognition by some
+;		devices.
+;
+;
+; If the found default file has a version number less than this,
+;  then create a new default file
+
+NEW_DEFAULTS_VERSION	 EQU	800
+;;NEW_DEFAULTS_VERSION	 EQU	700
+;;NEW_DEFAULTS_VERSION	 EQU	610
+;;NEW_DEFAULTS_VERSION	 EQU	516
+
+TRUE		equ	-1	;0ffffh
+FALSE		equ	0	;not TRUE
+
+TASM = TRUE;
+
+IF TASM
+.286
+ENDIF
+IF NOT TASM
+.286
+ENDIF
+
+
+ALLOWRAMPSPEED	EQU	FALSE
+
+ALLOW_VLAN3	EQU	TRUE	; Produce code that supports VLAN3 switcher ctrl
+DEVELOPMENT	EQU	FALSE
+DEBUGGER	EQU	FALSE	; Using internal debugger?
+DEMO_RELEASE	equ	FALSE
+COPY_PROTECT	equ	TRUE
+BETA_RELEASE	equ	FALSE		; change to TRUE for NAB
+DEBUGGING	EQU	FALSE	; Used for local debugging
+
+	MAX_FILENAMES		EQU	255
+	MAX_FILENAME_LENGTH	EQU	(12 + 1)
+
+	IF DEBUGGING
+	%OUT WARNING: DEBBUGGING IS ON
+	ENDIF
+
+	IFNDEF NTSC
+		NTSC	EQU	TRUE
+		IFIDNI <@fileName>,<VM>
+			%OUT DEFAULT NTSC = TRUE
+		ENDIF
+	ENDIF
+
+	IFNDEF CUTS_ONLY
+		CUTS_ONLY	EQU	FALSE
+		IFIDNI <@fileName>,<VM>
+			%OUT DEFAULT CUTS_ONLY = FALSE
+		ENDIF
+	ENDIF
+
+	IFNDEF ALLOWED_VTRS
+		ALLOWED_VTRS	EQU	7
+		IFIDNI <@fileName>,<VM>
+			%OUT DEFAULT ALLOWED_VTRS = 7
+		ENDIF
+	ENDIF
+
+IFIDNI <@fileName>,<VM>
+	if NTSC and (NOT CUTS_ONLY) and ALLOWED_VTRS EQ 7
+	%OUT Assembling NTSC PRO Version
+
+	endif
+	if (NOT NTSC) and (NOT CUTS_ONLY) and ALLOWED_VTRS EQ 7
+	%OUT Assembling PAL PRO Version
+	endif
+
+	if NTSC and (NOT CUTS_ONLY) and ALLOWED_VTRS LT 7
+	%OUT Assembling NTSC Multiple Source Version
+	endif
+
+	if (NOT NTSC) and (NOT CUTS_ONLY) and ALLOWED_VTRS LT 7
+	%OUT Assembling PAL Multiple Source Version
+	endif
+
+	if NTSC and CUTS_ONLY and ALLOWED_VTRS LT 7
+	%OUT Assembling NTSC Single Source Version
+	endif
+
+	if (NOT NTSC) and (NOT CUTS_ONLY) and ALLOWED_VTRS LT 7
+	%OUT Assembling PAL Single Source Version
+	endif
+
+ENDIF
+
+	if ALLOWED_VTRS EQ 7
+MAX_GPI_REGISTERS	equ	28
+	else
+MAX_GPI_REGISTERS	equ	16
+	endif
+
+PAL		EQU	NOT NTSC
+	IF NTSC
+		rt = 'N'
+		FPS = 30
+		DF_CHAR = 'D'
+		NDF_CHAR = 'N'
+	ENDIF
+	IF PAL
+		rt = 'P'
+		FPS = 25
+		DF_CHAR = 'P'
+		NDF_CHAR = ' '
+	ENDIF
+
+LEGAL_ROM	EQU	309
+
+EXTENSIONS_ROM	EQU	320
+
+CASE_SIGNATURE	EQU	0CA5Eh		; CASE Signature
+
+realtimebuffers	equ	128 * 4		; 128 4 byte real time out/vtr buffers
+
+;;d1	=	((((.DATE shr 5) and 0fh) /10) or 30h)
+;;d2	=	((((.DATE shr 5) and 0fh) mod 10) or 30h)
+;;d3	=	(((.DATE and 1fh)/10) or 30h)
+;;d4	=	(((.DATE and 1fh) MOD 10) or 30h)
+;;d5	=	((((.DATE shr 9) + 80) /10) or 30h)
+;;d6	=	((((.DATE shr 9) + 80) MOD 10) or 30h)
+
+t1	SUBSTR ??date, 2, 1
+t2	SUBSTR ??date, 3, 1
+t3	SUBSTR ??date, 5, 1
+t4	SUBSTR ??date, 6, 1
+t5	SUBSTR ??date, 8, 1
+t6	SUBSTR ??date, 9, 1
+
+d1	=	t1 + 30h
+d2	=	t2 + 30h
+d3	=	t3 + 30h
+d4	=	t4 + 30h
+d5	=	t5 + 30h
+d6	=	t6 + 30h
+
+
+;----------------------------------------------------------------
+; B	Beta test
+; C	SINGLE SOURCE "CUTS ONLY" (not used in CASE II)
+; D	MULTISOURCE (BASIC), 10X AND GVG COMPATIBLE SWITCHERS
+; G	PROGRAMED MOTION CONTROL AND GPI RELAYS OPTION
+; S	Special Edition; Custom Programming
+%list
+
+	if BETA_RELEASE
+rt	=	'á'
+	endif
+
+cr	equ	0dh
+lf	equ	0ah
+
+
+TIMECODE STRUC
+	valTC	db	3 dup(0)
+;;	msbTC	db	0
+TIMECODE ENDS
+

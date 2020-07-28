@@ -1,0 +1,162 @@
+\X0=/w u:d.f d:1.7 d:1.7 r:2.3;
+\C1=!AW;
+\C2=/d;
+\C3=/w u:d.f d:1.7 d:1.7 r:2.3;
+\C4=/w u:b.f d:2.7 d:2.7 r:2.3;
+\C5=/w u:7.f d:4.7 d:4.7 r:2.3;
+\C6=/w u:8.f d:8.7 r:2.3;
+\C7=/w;vs mp;
+\C8=/w d:10.f r:2.3;
+\A1=/d0;
+\A2=/d1;
+\A3=/d0;d vtr_sndbuf;/d;d vtr_rcvbuf;/d0;
+\A4=d ds:bx;/d;d ds:dx;/d;
+\A5=/w;dr timeline_buffer .tline;
+\A6=/d0;d vtr_sndbuf;/d;d VLAN_SWBUF;/d;^C5;
+\A7=/w;dr w.data_seg:o.r_tc_in .marktable;
+\A8=/w;dr w.edl_seg:w.current_event_adr .event;
+\A9=/d1;d sx_rcvbuf;/d;d sx_sndbuf;
+\A0=/d1;d ss:sp;/d;d initfile_retadr;
+\VTRCB
+PORT.....,B,1
+VXPT.....,B,1
+AXPT.....,B,1
+FCM......,B,1
+TCM......,B,1
+SPD......,B,1
+DIR......,B,1
+PGM......,B,1
+WINDOW...,B,1
+ERROR....,B,1
+ERRSGN...,B,1
+\COLORS
+color_BKG,b,1
+color_GRID,b,1
+color_EDL,b,1
+color_CNTREDL,b,1
+color_WRKSPCE,b,1
+color_DIM,b,1
+color_NORM,b,1
+color_REV,b,1
+\EVENT
+ednum,b,1
+<donotuse>,+,1
+cmnt,b,1
+flags,b,1
+reel,b,6
+mode,b,1
+type,b,1
+efxnum,w,2
+efxdur,w,2
+keyflags,b,1
+ptcd,b,1
+rtcd,b,1
+pin,b,3
+pout,b,3
+rin,b,3
+rout,b,3
+rdur,b,3
+gpi,b,3
+\EDLHDR
+EDL_bin,b,2
+max_lines,b,2
+next_edit,b,2
+current_event,b,2
+next_avail_num,b,2
+mode_pntr,b,2
+edl_fcm,b,2
+<spare>,+,2
+EDL_header,+,70
+file_title,b,50
+ftfill,+,20
+fcm_format,b,10
+\MARKTABLE	; INs, OUTs and Durations
+R in,b,3
+R out,b,3
+R duration,b,3
+A in,b,3
+A out,b,3
+A duration,b,3
+B in,b,3
+B out,b,3
+B duration,b,3
+C in,b,3
+C out,b,3
+C duration,b,3
+D in,b,3
+D out,b,3
+D duration,b,3
+Aux in,b,3
+Aux out,b,3
+Aux duration,b,3
+Blk in,b,3
+Blk out,b,3
+Blk duration,b,3
+\SHORTMARKS	; INs, OUTs and Durations
+R - VTR,b,9
+A - VTR,b,9
+B - VTR,b,9
+C - VTR,b,9
+D - VTR,b,9
+Aux DEV,b,9
+Blk DEV,b,9
+\SW
+Trans Dur,b,4
+Pattern,b,2
+PtrnMods,b,2
+PtrnReps,b,2
+TransME,b,2
+NxtPgm,b,2
+NxtKey,b,2
+KeyFore,b,2
+KeySrc,b,2
+KeyMods,b,2
+\PMCTBL
+VTR,B,1
+SPEED,B,1
+SIGN,B,1
+OFFSET,B,3
+\TLINE
+TYPE,W,2
+SIGN,B,1
+OFFSET,B,3
+FLAGS,B,1
+VTR,B,1
+Param,b,1
+Param,b,1
+Stuff,b,2
+SIGN,B,1
+TIME,B,3
+\DIR
+files,b,1
+displayed,b,1
+pgtop,b,1
+lines,b,1
+choice,w,A
+choiceadr,w,2
+type,b,1
+sub_adr,w,2
+\VLSW
+TransitionDur,b,1
+PatternNumber,b,1
+PatternModifier,b,1
+PatternReplicate,b,1
+TransME,b,1
+NextPgmSrc,b,1
+NextKeyFlags,b,1
+KeyFore,b,1
+KeySrc,b,1
+KeyMods,b,1
+TitleFore,b,1
+TitleSrc,b,1
+TitleMods,b,1
+OfstTime,b,3
+\ACB
+READ_RTN,w,2
+BTN,b,1
+VLNCMD,b,1
+BITS,b,1
+EFXADR,b,1
+UPDOWN,b,1
+INCR,w,2
+CRNTVAL,w,2

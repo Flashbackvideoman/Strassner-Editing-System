@@ -1,0 +1,1812 @@
+Public 
+; Last revised: 2-22-1995, 11:12:23   (C)1989-1995 Norman H. Strassner
+%nolist
+
+include vmver.equ
+
+;Some common equates
+cr	equ	0dh	; Carriage Return
+lf	equ	0ah	; Line feed
+DOS	equ	21h
+
+PLUS_ASCII	EQU	'+'
+MINUS_ASCII	EQU	'-'
+PLUS_BIT	EQU	10000000B
+MINUS_BIT	EQU	01000000B
+
+MINIMUMBINS		equ	2	; Must have these many bins available
+					;  for program to run
+PRIMARYWORKSPACE	equ	1	; Initial workspace area
+
+RAMPSPEEDBUFFERS	equ	30	; # of speed buffers to use
+
+BEEPERINT		equ	1ch
+
+CUT_TRANSCHAR		equ	'C'
+DISSOLVE_TRANSCHAR	equ	'D'
+WIPE_TRANSCHAR		equ	'W'
+KEY_TRANSCHAR		equ	'K'
+
+VX_CR		equ	0f0h	;if sending a lone carriage return
+VX_CharCh	equ	0f1h	;if using exact CHARACTER in CH
+VX_PoundNum	equ	0f2h	;sends "#" + node number
+VX_ASCchVTRdl	equ	0f3h	;sends (cmd) AX + (ascii) ch + "#" + (vtr) dl
+VX_ASCchNODEdl	equ	0f4h	;sends (cmd) AX + (ascii) ch + "#" + (node) dl
+VX_HEXchNODEdl	equ	0f5h	;sends (cmd) AX + (2 byte ascii hex) ch + "#" + (node) dl
+VX_HEXch	equ	0f6h	;sends (cmd) AX + (2 byte ascii hex) ch
+VX_MULTvtrs	equ	0fch	;if sending out multiple vtr info
+VX_DIGITch	equ	0fdh	;if using an EXACT digit in CH
+VX_MULTsrcroll	equ	0feh	;if this is a multi-source roll
+VX_DeviceCH	equ	0ffh	;if CH has a binary number
+VX_PLUS		equ	'+'
+VX_MINUS	equ	'-'
+
+;*************************************************************************
+;	M a c h i n e	R e f e r e n c e   N u m b e r s
+;*************************************************************************
+
+MAX_DEVICES	equ	ALLOWED_VTRS + 1	; 0=r, 8=F
+MAX_MACHINES	equ	ALLOWED_VTRS		; R=1,A=2,B=3,C=4,D=5,E=6,F=7
+ALL_DEVICES	equ	ALLOWED_VTRS + 2	; R,A,B,C,D,E,F,AX,BL
+MAX_SOURCES	equ	ALLOWED_VTRS - 1
+MULT_DEVICES	equ	ALL_DEVICES * 2		; Used for multiple VTR rolls
+r_dev		equ	0
+a_dev		equ	1
+b_dev		equ	2
+c_dev		equ	3
+d_dev		equ	4
+e_dev		equ	5
+f_dev		equ	6
+aux_dev		equ	ALLOWED_VTRS
+blk_dev		equ	ALLOWED_VTRS + 1
+
+;================================================================
+ttlfmt_length	equ	7		; Length of "TITLE: "
+macrolen	equ	64 * 2		; 64 two-byte commands + 32 byte title
+macrotlen	equ	32		; Length of macro titles
+
+maxlines	equ	22		; # of lines in a screen page
+line_length	equ	64		; Line length of edit in EDL
+
+	if ALLOWED_VTRS LT 7
+maxbins		equ	3
+	else
+maxbins		equ	9
+	endif
+
+
+	IF DEMO_RELEASE
+edl_lines	equ	10
+	ELSE
+edl_lines	equ	1020
+	ENDIF
+
+edl_size	equ	line_length * edl_lines	; Max Size of EDL
+cmt_length	equ	64		; Allowed length of comment (w/o cr,lf,0)
+title_length	equ	73		; Max allowable title length
+reel_length	equ	6		; # of characters allowed in reels
+
+pathname_length	equ	42		; Enough for three levels
+
+;================================================================
+; Lengths for VTR send and receive buffers
+vtr_buf_len	equ	128
+sx_buf_len	equ	128
+MAXEMEMLENGTH	equ	1024
+
+DefaultFile_BIT		equ	0000000000000001b ; Default file on command line
+DefaultDir_BIT		equ	0000000000000010b ; EDL subdirectory requested
+ScriptFile_BIT		equ	0000000000000100b ; Script file requested
+NoScriptFile_BIT	equ	0000000000001000b ; Script file NOT requested
+RunMacro_BIT		equ	0000000000010000b ; 
+AutoMacro_BIT		equ	0000000000100000b ; 
+MacroSubdir_BIT		equ	0000000001000000b ; 
+SetSpeed_BIT		equ	0000000010000000b ;
+MSWINcompat_BIT		equ	0000000100000000b ; Windows compatibility
+
+;================================================================
+; EDITING FUNCTION TYPES
+V_nul	equ	0
+V_pvw	equ	1
+V_rec	equ	2
+V_rev	equ	3
+V_vbv	equ	4
+V_bvb	equ	5
+V_vv	equ	6
+V_bv	equ	7
+V_vb	equ	8
+V_roll	equ	9
+
+;================================================================
+;EDIT STATUS RETUNS
+;================================================================
+EDITSTATUSIS_DONE	EQU	0
+EDITSTATUSIS_CUEING	EQU	1
+EDITSTATUSIS_READY	EQU	2
+EDITSTATUSIS_LOCKING	EQU	3
+EDITSTATUSIS_SYNCHING	EQU	4
+EDITSTATUSIS_LOCKED	EQU	5
+EDITSTATUSIS_EDITING	EQU	6
+EDITSTATUSIS_POSTROLL	EQU	7
+EDITSTATUSIS_ABORTED	EQU	8
+
+EDITSTATUS struc
+	ES_escape	db	0
+	ES_type		db	0
+	ES_count	db	0
+	ES_msg		db	0
+	ES_term		db	0
+EDITSTATUS ends
+
+VLANSWEMEM struc
+	VSE_escape	db	0
+	VSE_type	db	0
+	VSE_count	db	0
+	VSE_sequence	dw	0
+	VSE_data	db	64 dup(0)
+	VSE_term	db	0
+VLANSWEMEM ends
+
+COMPORT	struc
+	cpPORT		db	0
+	cpOPTS		db	0
+	cpBAUD		dw	0
+	cpNAME		db	'        '
+			db	0
+COMPORT	ends
+
+;================================================================
+; Edit line types -- used to fill in cmnt_lofst
+;================================================================
+; Edit line types -- used to fill in cmnt_lofst
+Editline_BASE		equ	0f0h
+Editline_EDIT		equ	0ffh
+Editline_SLAVE		equ	0feh
+Editline_SPD		equ	0fdh
+Editline_PMC		equ	0fch
+Editline_REC		equ	0fbh
+Editline_RAMP		equ	0fah
+Editline_PREREAD	equ	0f9h
+Editline_GPI		equ	0f1h
+
+;================================================================
+
+;================================================================
+; MACRO EDITING COMMAND "TYPE FlagS"
+ME_Single	equ	00000001b
+ME_Enter	equ	00000010b
+ME_Range	equ	00000100b
+ME_TC		equ	00001000b
+ME_Digit	equ	00010000b
+ME_FirstEnter	equ	00100000b
+ME_7		equ	01000000b
+ME_8		equ	10000000b
+ME_null		equ	00000000b
+;================================================================
+
+
+;================================================================
+; EDL FILE SPECIAL LINE TYPES Flag
+LoadBit_title	equ	00000001b
+LoadBit_FCM	equ	00000010b
+LoadBit_format	equ	00000100b
+LoadBit_starts	equ	00001000b
+LoadBit_update	equ	00010000b
+;================================================================
+
+
+;================================================================
+; AUDIO VIDEO MODE FlagS
+video_Emode	equ	00001000b
+aud1_Emode	equ	10000000b
+aud2_Emode	equ	01000000b
+aud3_Emode	equ	00100000b
+aud4_Emode	equ	00010000b
+audall_Emode	equ	11110000b
+
+;================================================================
+; Bit assignments for INPUT_Flag, used by LINE INPUT ROUTINES
+INFL_gpi	equ	0000000000000001b
+INFL_relay	equ	0000000000000010b
+INFL_speed	equ	0000000000000100b
+INFL_const	equ	0000000000001000b
+INFL_timeline	equ	0000000000010000b
+INFL_link	equ	0000000000100000b
+INFL_menu	equ	0000000001000000b
+INFL_ramp	equ	0000000010000000b
+INFL_DECIMAL	equ	0000000100000000b
+
+;================================================================
+; VLAN APPLICATION TYPES (NODE TYPES)
+; This byte is send back as an answer to APPLICATION TYPE
+Ntype_offline	equ	'0'
+Ntype_vtr	equ	'1'
+Ntype_vswitch	equ	'2'
+Ntype_keyboard	equ	'3'
+Ntype_aswitch	equ	'4'
+Ntype_relays	equ	'5'
+Ntype_serial	equ	'6'
+
+;================================================================
+; VLAN RELAY FlagS FOR RELAY TYPE TABLE
+MAX_RELAYS	equ	48
+MAX_RLYS_PERBOX	equ	16
+
+RELAYstruc	STRUC
+	Rly_NAME	db 8 dup(0)
+	Rly_ACTIVE	db 0
+	Rly_FLAGS	db 0
+	Rly_OFFSET	TIMECODE <0>
+			db 0,0,0
+RELAYstruc	ENDS
+
+RTYPE_LENGTH	equ	SIZE RELAYstruc		; Length of relay buffer
+
+RTYPE_latch	equ	00000000b
+RTYPE_pulse	equ	10000000b
+RTYPE_set	equ	01000000b
+RTYPE_reset	equ	00100000b
+RTYPE_pwidth	equ	00011111b
+
+
+;================================================================
+; for SWITCHER FlagS
+wipemods_SWBIT	equ	0000000010000000b	; Use wipe code modifiers
+extmenu_SWBIT	equ	0000000001000000b	; Use external switcher menu
+
+; for EDIT_FlagS
+delroll_EDBIT	equ	0000000010000000b	; Use Delayed Roll
+riplslave_EDBIT	equ	0000000001000000b	; Ripple slaves w/record
+realtime_EDBIT	equ	0000000000100000b	; Real time mode on if set
+cuetrack_EDBIT	equ	0000000000010000b	; Real time mode on if set
+prdoff_EDBIT	equ	0000000000001000b	; Preread off after edit if set
+
+; For OPERATIONAL_FlagS
+sort_OPBIT	equ	0000000010000000b	; Sort on/off
+clean_OPBIT	equ	0000000001000000b	; Auto-Clean on/off
+frame_OPBIT	equ	0000000000100000b	; 0 = TC, 0ffh = FRAMES
+lprint_OPBIT	equ	0000000000010000b	; Printer on/off
+askdskclr_OPBIT	equ	0000000000001000b	; Out point or Duration display
+asyougo_OPBIT	equ	0000000000000100b	; Auto output toggle
+diskon_OPBIT	equ	0000000000000010b	; DISK OUTPUT POSSIBLE IF 0ffh
+lookahead_OPBIT	equ	0000000000000001b	; VTR Look ahead on / off
+
+; for EDLoptions_Flags
+modetype_EDLBIT	equ	0000000010000000b	; Mode type = EDL format
+modedisp_EDLBIT	equ	0000000001000000b	; Display as EDL format
+outdur_EDLBIT	equ	0000000000000010b	; Display OUTs or Durations
+autdsabl_EDLBIT	equ	0000000000000001b	; Auto disable after RECORD
+
+; for DOS_FlagS
+usemenu_DOSBIT	equ	0000000010000000b	; Use CASEMENU.COM if set
+useolm_DOSBIT	equ	0000000001000000b
+prntscrn_DOSBIT	equ	0000000000100000b	; Ok to print screen if set
+CPU386_DOSBIT	equ	0000000000010000b	; Ok to print screen if set
+Cursor_DOSBIT	equ	0000000000001000b	; Ok to print screen if set
+ejectpg_DOSBIT	equ	0000000000000100b	; Ok to eject page if set
+virtual_DOSBIT	equ	0000000000000001b	; Ok to use Virtual Memory
+
+; For SOUNDDISPLAY_FlagS
+border_SDBIT	equ	0000000010000000b	; Workspace border on/off
+lastkey_SDBIT	equ	0000000001000000b	; Lastkey display on/off
+sortedls_SDBIT	equ	0000000000100000b	; 
+bell_SDBIT	equ	0000000000010000b	; Bells on/off
+errbell_SDBIT	equ	0000000000001000b	; Error bells on/off
+xxxxxxx_SDBIT	equ	0000000000000100b	; 
+recheck_SDBIT	equ	0000000000000010B	; Question recheck ON if set
+timedate_SDBIT	equ	0000000000000001b	; Display time and date
+
+; For SLAVE_FlagS, GPI_FlagS, PMC_FlagS, and SPD_FlagS
+Enabled_MSBIT	equ	0000000010000000b
+store_MSBIT	equ	0000000001000000b	; store slaves in EDL
+disp_MSBIT	equ	0000000000100000b	; display slaves
+
+;NETWORK_FlagS
+GPI_NTBIT	equ	1000000000000000b
+rptoggle_NTBIT	equ	0000000010000000b	; ENTER does R/P toggle if not set
+pauseplay_NTBIT	equ	0000000001000000b	; just pause if not set
+delhalf_NTBIT	equ	0000000000100000b	; 1/2 sec. delay before edit roll
+xxxxxxx_NTBIT	equ	0000000000010000b	; 
+DFdur_NTBIT	equ	0000000000001000b	; Use all DF durations
+EDLtrak_NTBIT	equ	0000000000000100b	; EDL tracking
+Jogger_NTBIT	equ	0000000000000010b	; Enable Serial Jogger
+joystick_NTBIT	equ	0000000000000001b	; Enable joystick
+
+podhere_PDBIT	equ	0000000000000001b
+poduse_PDBIT	equ	0000000000000010b
+
+;VLAN_FlagS
+swextended_VLNBIT equ	0000000010000000b	; Use extended V-LAN switcher stuff?
+forcever3_VLNBIT  equ	0000000001000000b	; Force using old VLAN switcher cmds
+
+;================================================================
+;			Switcher equates
+;================================================================
+; Switcher descriptor #1
+SXcb	STRUC
+	SXcb_name		db '        '	; 8 byte name
+	SXcb_Flags		dw ?		; Flag bits
+	SXcb_emems		dw ?		; # if emem registers
+	SXcb_xlatetbl		dw ?		; Address of wipe translate table
+	SXcb_smpteadr		dw ?		; Switcher bus address
+	SXcb_pbltbl		dw ?		; Address of pushbutton table
+	SXcb_commandtbl		dw ?		; Address of switcher command table
+	SXcb_masks		dw ?		; MSB = write mask, LSB = read mask
+	SXcb_analogbits		dw ?		; Analog availabilities. See SXana_...
+	SXcb_dskbits		dw ?		; DSK availabilities. See SXana_...
+	SXcb_AnalogIncrement	dw ?
+SXcb	ENDS
+SXcb_length	equ	SIZE SXcb
+
+; Special bits for switchers
+SXspcl_TRC		equ	0000000000000001b ; Use Trans Rate Command
+SXspcl_BCDwipe		equ	0000000000000010b ; Use BCD wipe codes
+SXspcl_AllStop		equ	0000000000000100b ; Send allstop before edit
+SXspcl_DSK		equ	0000000000001000b ; Switcher has DSK
+SXspcl_FTB		equ	0000000000010000b ; Switcher has FTB
+SXspcl_SetLayers	equ	0000000000100000b ; Setup layers (Alladin)
+SXspcl_ResetToStart	equ	0000000001000000b ; 
+SXspcl_WaitField	equ	0000000010000000b ; 
+SXspcl_ALL		equ	1111111111111111b
+SXspcl_NONE		equ	0000000000000000b
+
+; SX analog availability for SXcb_analogbits
+SXana_Fader		equ	0000000000000001b
+SXana_Positioner	equ	0000000000000010b
+SXana_aspect		equ	0000000000000100b
+SXana_softness		equ	0000000000001000b
+SXana_Border		equ	0000000000010000b
+SXana_key_clip		equ	0000000000100000b
+SXana_key_gain		equ	0000000001000000b
+SXana_hue		equ	0000000010000000b
+SXana_chroma		equ	0000000100000000b
+SXana_lumance		equ	0000001000000000b
+SXana_mask_presetsize	equ	0000010000000000b
+SXana_background_hue	equ	0000100000000000b
+SXana_bacground_chroma	equ	0001000000000000b
+SXana_bacground_lum	equ	0010000000000000b
+SXana_chroma_key_hue	equ	0100000000000000b
+SXana_ALL		equ	1111111111111111b
+SXana_NONE		equ	0000000000000000b
+
+SXdsk_dsk_clip		equ	0000000000000001b
+SXdsk_dsk_hue		equ	0000000000000010b
+SXdsk_dsk_chroma	equ	0000000000000100b
+SXdsk_dsk_luminance	equ	0000000000001000b
+SXdsk_ALL		equ	1111111111111111b
+SXdsk_NONE		equ	0000000000000000b
+
+SWBIT_smpte	equ	1000000000000000b	; SMPTE type device (no = ESAM)
+SWbit_EFXMEM	equ	0100000000000000b	; Device has effects memory
+SWbit_singlebus	equ	0010000000000000b	; Switcher with only one bus
+SWbit_nozeroxpt	equ	0001000000000000b	; Ignore crosspoint 0
+SWbit_xptplus1	equ	0000100000000000b	; 0=1, 1=2, etc (crosspoints)
+SWbit_WipeMods	equ	0000010000000000b	; Modify SOFT and BORDER wipes
+SWbit_Polarity	equ	0000001000000000b	; Switch analog polarities
+SWbit_PC3	equ	0000000100000000b	; Special Flag for PC3 card
+SWbit_GVG10XL	equ	0000000010000000b	;
+SWbit_NoWakeUp 	equ	0000000001000000b	; Do NOT send break/address
+SWbit_VLAN	equ	0000000000100000b	; 
+SWbit_esccrc	equ	0000000000010000b	; Use escape and checksum
+SWbit_frmdelay	equ	0000000000001000b	; Delay after switch
+SWbit_audio	equ	0000000000000100b	; Audio only switcher
+SWbit_Internal	equ	0000000000000010b	; Translate to GVG wipe codes
+SWBIT_monitor	equ	0000000000000001b	; Use ESAM audio monitoring
+
+;................................................................
+;SWITCHER TYPES
+vlan_IOTYP	equ	00000001b
+video_IOTYP	equ	00000010b
+audio_IOTYP	equ	00000100b
+Jogger_IOTYP	equ	00001000b
+xterm_IOTYP	equ	00010000b
+printer_IOTYP	equ	00100000b
+readsend_IOTYP	equ	01000000b
+preview_IOTYP	equ	10000000b
+
+;================================================================
+; EDL Format Flags -- Flag 1
+E_Flag_fcmline	equ	00000001b	; Flag: FCM: line
+E_Flag_fcmtail	equ	00000010b	; Flag: DD, ND, etc tail
+E_Flag_semicol	equ	00000100b	; Flag: using semicolons
+E_Flag_rightset	equ	00001000b	; Flag: right setting of reel
+E_Flag_auxblk	equ	00010000b	; Flag: 3 byte AX/BL if set
+E_Flag_exactav	equ	00100000b	; Use A/V exact positions
+E_Flag_Zaubl	equ	01000000b	; Flag: AUX1/BLACK
+E_Flag_dblline	equ	10000000b	; Flag: double crlf
+
+; EDL Format Flags -- Flag2
+E1Flag_splline	equ	00000001b	; Flag: SPLIT: line
+E1Flag_spltype	equ	00000010b	; Flag: * See note below
+E1Flag_aud34ok	equ	00000100b	; Flag: Audio 3 and 4 OK
+
+E1Flag_allcaps	equ	10000000b	; Flag: Use all CAPS if set
+
+; * E1Flag_mach note:
+; if E1Flag, bit 1 = 1, MACH I editing systems format the split line as:
+;0001  001     A12   C        02:00:00;00 02:00:01;00 01:00:00;00 01:00:01;00
+;0001  001     VA12  C        02:00:01;00 02:00:05;00 01:00:01;00 01:00:05;00
+; if E1Flag, bit 1 = 0, then the split line looks like:
+;0001  001     A12   C        02:00:00;00 02:00:05;00 01:00:00;00 01:00:05;00
+;0001  001     VA12  C        02:00:01;00 02:00:05;00 01:00:01;00 01:00:05;00
+;
+;	Notice the change in the out point of the first line
+
+
+;Flags_lofst
+; Lower 3 bits are for color framing type
+sort_Fmask	equ	1000000000000000b
+preread_Fmask	equ	0100000000000000b
+key_Fmask	equ	0010000000000000b
+dblline_Fmask	equ	0001000000000000b
+split_Fmask	equ	0000100000000000b	; Only on second line
+disabled_Fmask	equ	0000010000000000b
+cfbits_Fmask	equ	0000000000000111b
+
+;keyFlags_lofst
+ftb_Kmask	equ	00010000b
+delayed_Kmask	equ	00001000b
+fadein_Kmask	equ	00000100b
+fadeout_Kmask	equ	00000010b
+back_Kmask	equ	00000001b
+
+;================================================================
+;Set this according to whether you desire record or playback priority
+;in recalled edits.
+r_priority	equ	0h		; Record In/Out priority
+p_priority	equ	0ffh		; Playback In/Out priority
+n_priority	equ	0feh		; No In/Out priority
+
+priority	equ	n_priority
+
+;================================================================
+; MOTION CONTROL EQUATES
+MAX_SPEED_CHANGES	equ	7		; # of buffers
+MAX_MOTION_VTRS	equ	MAX_MACHINES - 1; # of VTRs that can change speeds
+
+;	FORMAT:	1 BYTE VTR A=1, B=2, C=3, D=4
+;		1 BYTE SPEED IN FRAMES/SECOND
+;		1 BYTE SIGN (+ OR -) OF FOLLOWING OFFSET
+;		3 BYTE TIME CODE OFFSET FROM PREROLL
+VARSPEEDCHANGE	struc
+	VSPD_VTR	db	0ffh
+	VSPD_SPD	db	0ffh
+	VSPD_DIR	db	'+'
+	VSPD_TIM	TIMECODE <0>	;db	3 dup(0)
+VARSPEEDCHANGE	ends
+
+; Structure for speed changes
+RAMPSPEED	struc
+	SPEED_VTR	db	1
+	SPEED_DIRECTION db	0
+	SPEED_FROM	dw	0,0
+	SPEED_FROMDIR	db	'+'
+	SPEED_TO	dw	0,0
+	SPEED_TODIR	db	'+'
+	SPEED_TIME	TIMECODE <0>	;db	3 dup(0)
+	SPEED_START	TIMECODE <0>	;db	3 dup(0)
+RAMPSPEED	ends
+
+;================================================================
+; GPI REGISTERS
+G_active_mask	equ	10000000b
+G_swtrig_mask	equ	01000000b
+G_vltrig_mask	equ	00100000b
+G_program_mask	equ	00010000b
+G_machine_mask	equ	00001000b
+
+GPIrec	STRUC
+	gpiSIGN		db ?		; Byte 1   = Sign
+	gpiTRIGTIME	TIMECODE <0>	;db 3 dup(?)	; Byte 2-4 = trigger time offset from record in
+	gpiFLAGS	db ?		; Byte 5 Flags (G_xxxx_mask)
+			db ?
+	gpiCMD		dw ?		; Word 7-8 = Command
+GPIrec	ENDS
+GPI_length	equ	SIZE GPIrec	; Length of each GPI register
+
+
+; GPI EDL FIELDS:
+; Six fields
+;  1      2         3         4       5         6
+; ___  ______  ___________   ____  ______  ___________
+; SLV     004  00:00:00:00   MSTR     001  00:00:00:00  
+
+
+;================================================================
+;			TIME_LINE equates
+;================================================================
+
+MAX_TIMELINES	equ	MAX_GPI_REGISTERS + MAX_SPEED_CHANGES + 16
+
+TIMELINEREC STRUC
+	TLR_type	dw	0	; 2 bytes, Offset for type Flags
+	TLR_sign	db	0
+	TLR_time	TIMECODE <0>	;db	3 dup(0); 3 bytes, 3,4,5
+	TLR_gpiflags	db	0
+			db	0
+	TLR_gpicmd	dw	0
+	TLR_vtr		db	0	; PMC VTR
+	TLR_speed	db	0	; PMV SPEED
+	TLR_exectime	db	0	; 12,13,14,15 sign,tc
+			TIMECODE <0>	;db	3 dup(0);
+TIMELINEREC ENDS
+
+TLINE_size	equ	SIZE TIMELINEREC
+
+; MSB is ZERO
+TFlag_SYNC_IN	equ	01h	; SYNC time		01
+TFlag_SYNC_OUT	equ	02h	; SYNC time		02
+TFlag_PVWin	equ	04h	; BVB switch IN		04
+TFlag_RIN	equ	08h	; Record IN trigger	08
+TFlag_INsplit	equ	10h	; Split In		10
+TFlag_OUTsplit	equ	20h	; Split Out		20
+TFlag_PVWout	equ	40h	; BVB switch out	40
+TFlag_ROUT	equ	80h	; Record OUT trigger	80
+
+; MSB is NON-ZERO
+TFlag_ATRANS	equ	100h	; Switcher Auto Trans trigger 0100h
+TFlag_GPI	equ	200h	; GPI register trigger	0200h
+TFlag_PMC	equ	400h	; Multiple GPI switch	0400h
+
+TFlag_Beeper	equ	4000h	; Beeper (low priority)
+
+TFlag_regmask	equ	00FFh	;
+
+TFlag_sorted	equ	07FFFh
+
+;********************************************************************
+; Bit values for workspace_Flags
+; Bits: 1     2     3     4     5     6     7     8
+;      rin   rout  rdur  pin   pout  pdur
+; Bits: 8     7     6     5     4     3     2     1
+;                  Pdur  Pout  Pin   rdur  Rout  Rin
+
+w_Rin_BIT	EQU	0000000000000001B
+w_Rout_BIT	EQU	0000000000000010B
+w_Rdur_BIT	EQU	0000000000000100B
+w_TOin_BIT	EQU	0000000000001000B
+w_TOout_BIT	EQU	0000000000010000B
+w_TOdur_bit	EQU	0000000000100000B
+w_FRMin_BIT	EQU	0000000001000000B
+w_FRMout_BIT	EQU	0000000010000000B
+w_FRMdur_bit	EQU	0000000100000000B
+w_BKGin_BIT	EQU	0000001000000000B
+w_BKGout_BIT	EQU	0000010000000000B
+w_BKGdur_bit	EQU	0000100000000000B
+w_FORin_BIT	EQU	0001000000000000B
+w_FORout_BIT	EQU	0010000000000000B
+w_FORdur_bit	EQU	0100000000000000B
+
+;................................................................
+; Machine information and pointer blocks
+VTRinf	STRUC
+	VTRNUM		DW	?
+	REELID		DW	?
+	REEL_SCRN	DW	?
+	MACH_SCRN	DW	?
+	IN_POINT	DW	?
+	OUT_POINT	DW	?
+	DURATION	DW	?
+VTRinf	ENDS
+
+VTRINOUTDUR STRUC
+	tcIN		TIMECODE <0>	;db	3 dup(0)
+	tcOUT		TIMECODE <0>	;db	3 dup(0)
+	tcDUR		TIMECODE <0>	;db	3 dup(0)
+VTRINOUTDUR ENDS
+INOUTDUR_length equ SIZE VTRINOUTDUR
+
+JOGGERinf STRUC
+	KEY0		DW	0
+	KEY1		DW	0
+	KEY2		DW	0
+	KEY3		DW	0
+	KEY4		DW	0
+	KEY5		DW	0
+	KEY6		DW	0
+	WHEEL		DW	0
+JOGGERinf ENDS
+
+
+;MACH#, REEL ID POINTER, REEL CURSOR, MACHINE CURSOR, IN ADR, OUT ADR, DUR ADR
+VTRCBtables	macro VTR
+extrn Reel_Assignments:word, Marks_Table:word
+		dw	VTR
+		dw	(VTR * 7) + Reel_Assignments
+		dw	((r_line + VTR) * 256) + reel_offset
+		dw	((r_line + VTR) * 256) + mach_offset
+		dw	(VTR * 9) + Marks_Table,(VTR * 9) + Marks_Table + 3,(VTR * 9) + Marks_Table + 6
+endm
+
+VTRCBtablesAXBL	macro VTR
+		dw	VTR
+		dw	(VTR * 7) + Reel_Assignments
+		dw	((r_line + VTR) * 256) + mach_offset
+		dw	((r_line + VTR) * 256) + mach_offset
+		dw	(VTR * 9) + Marks_Table,(VTR * 9) + Marks_Table + 3,(VTR * 9) + Marks_Table + 6
+endm
+
+
+VTRFCM	macro
+	call	get_vtrcb_FCM_FAR
+	mov	cl,al
+ENDM
+
+
+;================================================================
+
+ERET_Return	equ	0000000100000000b
+ERET_Quick	equ	0000001000000000b
+ERET_Keyboard	equ	0000010000000000b
+ERET_DOS	equ	0000100000000000b
+
+noerror			equ		0
+nodosmem_error		equ		1
+conflict_error		equ		2
+BadPortAsgn		equ		3
+lst_dev_error		equ		4
+virtualmem_error	equ		5
+NoBinMem_error		equ		6
+offline_error		equ		9
+vtrs_notready		equ		10
+cutsonly_error		equ		14
+noauxswitcher_error	equ		15
+file_corrupt		equ		17
+file_not_found		equ		18
+file_error		equ		19
+diskfull_error		equ		20
+badfmt_error		equ		21
+nonspec_error		equ		22
+nodisk_error		equ		23
+wrtprot_error		equ		24
+nosubdir_error		equ		25
+cantrun_error		equ		26
+NoValidEFX_error	equ		27
+NoValidMacro_error	equ		28
+NoReelAssigned		equ		33
+no_reel_match		equ		34
+canttag_error		equ		35
+splitdur_error		equ		36
+efxtrans_error		equ		37
+nodiss_error		equ		38
+mprse_error		equ		39
+undef_dur		equ		40
+nomarks_error		equ		41
+noefx_error		equ		42
+txtnofnd_error		equ		43
+RVTR_FCM_change		equ		44
+badRTslaves_error	equ		45
+resultbelowzero_error	equ		46
+
+EDLFCM_error		equ		49
+out_of_memory		equ		50
+out_of_range		equ		51
+nomarked_error		equ		52
+noreelsum_error		equ		53
+useextmatch_error	equ		54
+novarispd_error		equ		56
+
+NoPMCavail_error	equ		57
+badfill_error		equ		58
+bad_parameters		equ		59
+alreadylinked_error	equ		60
+alreadymultr_error	equ		61
+vtr_conflict_error	equ		62
+cantswaptosame_error	equ		63
+rampspecsillegal_error	equ		64
+
+;================================================================
+; Only use the following extrns if NOT assembling VMHDR
+% IFDIFI <@FileName>,<vmhdr>
+extrn GPI_xcmd:word,Links_xcmd:word,Asmthis_xcmd:word,Opend_xcmd:word
+extrn Exch_xcmd:word,Bins_xcmd:word,InsEv_xcmd:word,DelEv_xcmd:word
+extrn Find_xcmd:word,Status_xcmd:word,Summary_xcmd:word,Progspeed_xcmd:word
+extrn Ctrlbreak_xcmd:word,Macch_xcmd:word,Ememopts_xcmd:word,Assemble_xcmd:word
+extrn ChgEv_xcmd:word,Move_xcmd:word,Clwrk_xcmd:word,Cledt_xcmd:word
+extrn Cllst_xcmd:word,Sort_xcmd:word,Setdflts_xcmd:word,Fill_xcmd:word
+extrn Tgtgl_xcmd:word,Ptgl_xcmd:word,Clean_xcmd:word,Diskon_xcmd:word
+extrn Xmac1_xcmd:word,Xmac2_xcmd:word,Xmac3_xcmd:word,Xmac4_xcmd:word
+extrn Xmac5_xcmd:word,Xmac6_xcmd:word,Xmac7_xcmd:word,Xmac8_xcmd:word
+extrn Xmac9_xcmd:word,Xmac10_xcmd:word,ChgEvNum_xcmd:word,Reel_xcmd:word
+extrn Match_xcmd:word,Savemarks_xcmd:word,Erecal_xcmd:word,RepEv_xcmd:word
+extrn Cmnt_xcmd:word,Pagef_xcmd:word,Lodfl_xcmd:word,Savfl_xcmd:word
+extrn Rstrt_xcmd:word,Keyhlp_xcmd:word,Seeke_xcmd:word,Backspace_xcmd:word
+extrn Sorttgl_xcmd:word,Allreels_xcmd:word,Tagit_xcmd:word,Lastmarks_xcmd:word
+extrn Frecal_xcmd:word,Undo_xcmd:word,Title_xcmd:word,Prntfil_xcmd:word
+extrn Shell_xcmd:word,Olm_xcmd:word,MultRecord_xcmd:word,Reelsum_xcmd:word
+extrn Shift_xcmd:word,Eject_xcmd:word,Receive_xcmd:word,Transmit_xcmd:word
+extrn Shodr_xcmd:word,Logdr_xcmd:word,Xterm_xcmd:word,Quit_xcmd:word
+extrn Debug_xcmd:word,Cpywrt_xcmd:word,Rcmpt_xcmd:word,Record_xcmd:word
+extrn Review_xcmd:word,Rehearse_xcmd:word,Bvb_xcmd:word,Vbv_xcmd:word
+extrn Vidsel_xcmd:word,Au1sel_xcmd:word,Au2sel_xcmd:word,Split_xcmd:word
+extrn Cut_xcmd:word,Dis_xcmd:word,Wip_xcmd:word,AddEv_xcmd:word
+extrn Tglenable_xcmd:word,Allenable_xcmd:word,Alldisable_xcmd:word
+extrn Hardvid_xcmd:word,Hardaud1_xcmd:word,Hardaud2_xcmd:word
+extrn Modesoff_xcmd:word,Swenabl_xcmd:word,Auenabl_xcmd:word
+extrn Makdiss_xcmd:word,Makwipe_xcmd:word,Transw_xcmd:word,Key_xcmd:word
+extrn Au_xcmd:word,Bl_xcmd:word,Counter_xcmd:word,Tccalc_xcmd:word
+extrn Calc2cnst_xcmd:word,Scrconst_xcmd:word,Rptgl_xcmd:word
+extrn Stopwatch_xcmd:word,Scrconstb_xcmd:word,Display_xcmd:word
+extrn Postroll_xcmd:word,Preroll_xcmd:word,Switchtc_xcmd:word
+extrn Music_xcmd:word,Shuttlefwd_xcmd:word,Shuttleback_xcmd:word
+extrn Play_xcmd:word,Still_xcmd:word,Reverse_xcmd:word,Gotoin_xcmd:word
+extrn Markin_xcmd:word,Markout_xcmd:word,Frame_xcmd:word,Scrini_xcmd:word
+extrn Rewind_xcmd:word,Fastfwd_xcmd:word,Twiceplay_xcmd:word,Stop_xcmd:word
+extrn Cue_xcmd:word,Markput_xcmd:word,Markget_xcmd:word,Kbdhlp_xcmd:word
+extrn Framesw_xcmd:word,Markon_xcmd:word,Markoff_xcmd:word,Twicefwd_xcmd:word
+extrn Twicerev_xcmd:word,Gotoout_xcmd:word,Snctg_xcmd:word,Slowfwd_xcmd:word
+extrn Slowrev_xcmd:word,All_Stop_xcmd:word,All_Cue_xcmd:word,Dbl0_xcmd:word
+extrn Scnxt_xcmd:word,Sclst_xcmd:word,Avail9_xcmd:word,Avail10_xcmd:word
+extrn End_key:word,Home_key:word,Pageup_key:word,Pagedn_key:word
+extrn Five_key:word,Macro_xcmd:word,Thisevent_xcmd:word,Colonplus_xcmd:word
+extrn Insert_key:word,Delete_key:word,Trimin_xcmd:word,Trimout_xcmd:word
+extrn Const_xcmd:word,Inrtn_xcmd:word,Outrt_xcmd:word,Durrt_xcmd:word
+extrn Pause_xcmd:word,Search_xcmd:word,Bump_Plus_xcmd:word,Bump_Minus_xcmd:word
+extrn Srchfwd_xcmd:word,Srchrev_xcmd:word,Viewedl1_key:word,Viewedl2_key:word
+extrn Enter_xcmd:word,Space_xcmd:word,Escape_xcmd:word,Plus2_xcmd:word
+extrn Plus3_xcmd:word,Clrrd_xcmd:word,Ctrlx_xcmd:word,Macterm_xcmd:word
+extrn Swlrn_xcmd:word,Swrcl_xcmd:word,Emlrn_xcmd:word,Emrcl_xcmd:word
+extrn Triggernow_xcmd:word,F1_key:word,F2_key:word,F3_key:word
+extrn F4_key:word,F5_key:word,F6_key:word,F7_key:word,F8_key:word
+extrn F9_key:word,F10_key:word,F11_key:word,F12_key:word,Yeskey_xcmd:word
+extrn Nokey_xcmd:word,Ctrlc_xcmd:word,Sf1_key:word,Sf2_key:word,Sf3_key:word
+extrn Sf4_key:word,Sf5_key:word,Sf6_key:word,Sf7_key:word,Sf8_key:word
+extrn Sf9_key:word,Sf10_key:word,Sf11_key:word,Sf12_key:word,Nument_key:word
+extrn Cancel_key:word,Ctrl_Bkslsh:word,Ctrl_Astrck:word,Ctrl_Dash:word
+extrn Ctrl_Plus:word,Ctrl_Enter:word,Suspend_key:word
+extrn MulttrimIN_xcmd:word,MulttrimOUT_xcmd:word,ExactSpeed_xcmd:word
+extrn Read_xcmd:word,Send_xcmd:word,Load_xcmd:word,Save_xcmd:word
+extrn RcmptEDL_xcmd:word,EDLtrack_xcmd:word,EDLtrkone_xcmd:word
+extrn Splitscrn_xcmd:word,Ctrlkey_xcmd:word
+extrn Ctrlhome_key:word,Ctrlend_key:word,Ctrlright_key:word,Ctrlleft_key:word
+extrn Ctrlins_key:word,Ctrldel_key:word,Ctrlpgup_key:word,Ctrlpgdn_key:word
+extrn Shfthome_key:word,Shftend_key:word,Shftpgup_key:word,Shftpgdn_key:word
+extrn Shftins_key:word,Shftdel_key:word,Shiftsplit_xcmd:word
+extrn VV_xcmd:word,BV_xcmd:word,VB_xcmd:word
+extrn Color_xcmd:word,SwapVidSwitcher_xcmd:word
+extrn Bell_xcmd:word,CCT_xcmd:word,SymUp_xcmd:word,SymDn_xcmd:word
+extrn ForcedESC_xcmd:word,Preread_xcmd:word,Pausetime_xcmd:word
+extrn UndoWorkspace_xcmd:word,MatchPMC_xcmd:word,VtrSwap_xcmd:word
+extrn MatchExt_xcmd:word,SncTgExt_xcmd:word
+extrn VariFwd_xcmd:word,VariRev_xcmd:word
+extrn Rampspeed_xcmd:word,PrereadOnOff_xcmd:word
+
+extrn Rm_xcmd:word,Am_xcmd:word
+	if ALLOWED_VTRS GT 2
+extrn Bm_xcmd:word
+	endif
+	if ALLOWED_VTRS GT 3
+extrn Cm_xcmd:word
+	endif
+	if ALLOWED_VTRS GT 4
+extrn Dm_xcmd:word
+	endif
+	if ALLOWED_VTRS GT 5
+extrn Em_xcmd:word
+	endif
+	if ALLOWED_VTRS GT 6
+extrn Fm_xcmd:word
+	endif
+
+ENDIF ; IFDIFI <@FileName>,<vmhdr>
+
+% IFDIFI <@FileName>,<vm>
+extrn reset_leak:near,new_leak:near
+
+		if ALLOWED_VTRS GT 2
+	extrn b_machine:near
+		endif
+		if ALLOWED_VTRS GT 3
+	extrn c_machine:near
+		endif
+		if ALLOWED_VTRS GT 4
+	extrn d_machine:near
+		endif
+		if ALLOWED_VTRS GT 5
+	extrn e_machine:near
+		endif
+		if ALLOWED_VTRS GT 6
+	extrn f_machine:near
+		endif
+endif
+
+;================================================================
+; Universal Data Segment Extrns
+; Only use the following extrns if NOT assembling VMSTORS
+
+% IFDIFI <@FileName>,<vmstatic>
+
+SpacePointer	equ	offset spaces - 
+
+extrn Color_BKG:byte,Color_GRID:byte,Color_EDL:byte,Color_WRKSPCE:byte
+extrn Color_CNTREDL:byte,Color_DIM:byte,Color_NORM:byte,Color_REV:byte
+
+extrn ZeroBase:word
+
+
+ENDIF ; IFDIFI <@FileName>,<vmstatic>
+
+% IFDIFI <@FileName>,<vmtables>
+extrn spaces:word
+extrn M_stop:word,M_status_encod:word,M_location_rqst:word,M_location_stat:word,
+extrn M_edit_status:word,M_edit_error:word,M_sync_check:word,M_ee_off:word,
+extrn M_ee_on:word,M_onthefly:word,M_node_address:word,M_read_in:word,
+extrn M_read_out:word,M_read_duration:word,M_set_in:word,M_set_out:word,
+extrn M_set_duration:word,M_clear_node:word,M_play:word,M_pause:word,
+extrn M_fast_forward:word,M_fast_rewind:word,M_shuttle_speed:word,M_rehearse:word,
+extrn M_perform:word,M_review:word,M_track_select:word,M_mark_in:word,
+extrn M_mark_out:word,M_trim_in:word,M_trim_out:word,M_trim_duration:word,
+extrn M_auto_inc:word,M_goto_in:word,M_goto_out:word,M_cue:word,
+extrn M_goto_location:word,M_location_cont:word,M_end_condition:word,M_status_rqst:word,
+extrn M_device_type:word,M_preroll_set:word,M_postroll_set:word,M_echo_on:word,
+extrn M_echo_off:word,M_autocal:word,M_set_location:word,M_add_tracks:word,
+extrn M_Color_bump:word,M_gpi_on:word,M_gpi_off:word,M_gpi_time:word,
+extrn M_split_time:word,M_switchtc:word,M_wait_on:word,M_wait_off:word,
+extrn M_wait_go:word,M_eject:word,M_id:word,M_jog_forward:word,
+extrn M_jog_reverse:word,M_record:word,M_edit_sync:word,M_userid:word,
+extrn M_setclock:word,M_readclock:word,M_lastout:word
+extrn M_code_valid:word,M_code_mode:word,M_var_play:word,M_var_shttl:word,
+extrn M_send_speed:word,M_test_variable:word,M_test_speed:word,M_set_variable:word,
+extrn M_change_speed:word,M_track_change:word,M_relay_set:word,M_relay_reset:word,
+extrn M_relay_pulse:word,M_pulse_time:word,M_clear_relays:word,M_relay_trigger:word,
+extrn M_node_type:word,M_edit_abort:word,M_roll_begin:word,M_roll_end:word,
+extrn M_Record_nodes:word,M_Source_nodes:word,M_Binary_Status:word,M_Edit_Clock:word,
+extrn M_VLAN_reset:word,M_sync_bump:word,MSW_switch:word,MSW_mods_enable:word,
+extrn MSW_mods_disable:word,MSW_get_config:word,MSW_get_patterns:word,MSW_trigger:word,
+extrn MSW_clear:word,M_set_tcgen:word,M_set_userbits:word,M_set_gentctype:word,
+extrn M_vlan_pass:word,M_switcher_pass:word,M_keyboard_type:word,M_Init_keyboard:word,
+extrn M_key_type:word,M_cruise:word,M_Keyboard_quiet:word,M_Keyboard_asynch:word,
+extrn M_Keyboard_poll:word,M_get_code_mode:word,M_highres_shuttle:word
+extrn M_SetColorFrame:word,M_StopStandby:word,M_EditField:word,M_PreRead:word
+extrn M_GetColorFrame:word,M_DownloadOption:word,M_DownloadReady:word
+extrn M_EndRoll:word,M_SequenceCheck:word,M_BinaryEditStatus:word
+extrn MSW_set_parameter:word,MSW_read_parameter:word,MSW_set_efxaddrs:word
+extrn MSW_upload_emem:word,MSW_download_emem:word,MSW_read_packet:word
+extrn MSW_write_packet:word,M_RollDevice:word
+ENDIF ; IFDIFI <@FileName>,<vmtables>
+
+
+
+;================================================================
+; Universal Data Segment Extrns
+; Only use the following extrns if NOT assembling VMSTORS
+% IFDIFI <@FileName>,<vmstors>
+extrn video_mode:byte
+extrn ERROR_OFFSET:word,ERROR_SEG:word,ERROR_FlagS:word
+extrn ERROR_PROMPT:word,ERROR_CURSOR:word,ERROR_MESSAGE:word
+extrn ERROR_COMMAND:word,ERROR_ACTIVE:byte
+
+ENDIF ; IFDIFI <@FileName>,<vmstors>
+
+% IFDIFI <@FileName>,<vmBSEG>
+extrn _ERRORS:FAR
+ENDIF ; IFDIFI <@FileName>,<vmBSEG>
+
+% IFDIFI <@FileName>,<vmmaint>
+extrn check_activator:near
+ENDIF
+
+
+
+cutbuf	STRUC
+	RTout	TIMECODE <0>	;db	3 dup(0)
+	RTvtr	db	0
+cutbuf	ENDS
+
+
+VLANSW_LENGTH	equ	18
+VLANSW	STRUC			; 18 bytes
+	VSW_IOTYP		db	0
+	VSW_TransitionDur	dw	0
+	VSW_PatternNumber	db	0
+	VSW_PatternModifier	db	0
+	VSW_PatternReplicate	db	0
+	VSW_TransME		db	0
+	VSW_NextPgmSrc		db	0
+	VSW_NextKeyFlags	db	0
+	VSW_KeyFore		db	0
+	VSW_KeySrc		db	0
+	VSW_KeyMods		db	0
+	VSW_TitleFore		db	0
+	VSW_TitleSrc		db	0
+	VSW_TitleMods		db	0
+	VSW_OfstTime		TIMECODE <0>	;db	3 dup(0)
+VLANSW	ENDS
+
+VTRCB_RECORD	struc 
+	Vtrcb_PORT	db	?
+	Vtrcb_VXPT	db	?
+	Vtrcb_AXPT	db	?
+	Vtrcb_FCM	db	' '
+	Vtrcb_TCM	db	1
+	Vtrcb_SPD	db	0
+	Vtrcb_DIR	db	0
+	Vtrcb_PGM	db	30
+	Vtrcb_WINDOW	db	0
+	Vtrcb_ERROR	dw	0
+	Vtrcb_EXACTSPEED db	0
+	Vtrcb_VARISPD	db	0
+	Vtrcb_VARIDIR	db	0
+	Vtrcb_VSSSPD	db	0
+	Vtrcb_VSSDIR	db	0
+			db	0
+			db	0
+	Vtrcb_MAXFWDSPD	db	0
+	Vtrcb_MAXREVSPD	db	0
+			db	0
+			db	0
+			db	0
+			db	0
+			db	0
+			db	0
+	Vtrcb_OFFSET	db	0
+			db	0
+			db	0
+	Vtrcb_CF	db	0
+			db	0
+			db	0
+VTRCB_RECORD	ends
+
+Vtrcb_length = SIZE VTRCB_RECORD	;32
+; SIZE VTRCB_RECORD
+; LENGTH VTRCB_RECORD
+
+
+;================================================================
+;================================================================
+; PQ_Cursor	dw	0	; Cursor start, upper left
+; PQ_choices	db	0	; # of choices
+; PQ_rows	db	0	; # of rows
+; PQ_cols	db	0	; # of cols
+; PQ_tab	db	0	; Tab position if more than 1 column
+; PQ_field	db	0	; Field length
+; PQ_Flag	dw	0	; Flag bits
+; PQ_exitkey	dw	0	; Key to exit menu
+; PQ_keypressed	dw	0	; Key pressed in position_query routine
+
+; PQ_Flag BITS:
+;       7        6         5        4        3        2        1        0
+;    LOAD FILE	SAVE FILE KILL	  Keythru  Macro  Yes/No/T  FileView  Paging
+;    REQUEST	REQUEST   	  allowed  Edit	  returned  Allowed  Allowed
+
+PQF_LOAD	equ	1000000000000000b
+PQF_SAVE	equ	0100000000000000b
+PQF_KILLFILE	equ	0010000000000000b
+PQF_KEYTHRU	equ	0001000000000000b
+PQF_MACRO	equ	0000100000000000b
+PQF_YESNOTGL	equ	0000010000000000b
+PQF_FILEVIEW 	equ	0000001000000000b
+PQF_PAGING	equ	0000000100000000b
+PQF_ALLOWZERO	EQU	0000000010000000b
+
+;;PQF_LOAD OR PQF_SAVE OR PQF_KILLFILE OR PQF_KEYTHRU OR PQF_MACRO OR PQF_YESNOTGL OR PQF_FILEVIEW OR PQF_PAGING
+
+POSITIONQUERYDATA	struc
+	PQ_Cursor	dw	0	; Cursor start, upper left
+	PQ_choices	db	0	; # of choices
+	PQ_rows		db	0	; # of rows
+	PQ_cols		db	0	; # of cols
+	PQ_tab		db	0	; Tab position if more than 1 column
+	PQ_field	db	0	; Field length
+	PQ_Flag		dw	0	; Flag bits
+	PQ_exitkey	dw	0	; Key to exit menu
+	PQ_keypressed	dw	0	; Key pressed in position_query routine
+POSITIONQUERYDATA	ends
+
+
+;================================================================
+; Offsets into the EDIT PARAMETER BLOCKS
+;                     OFFSET	   LENGTH    DESCRIPTION
+EDIT_RECORD	struc
+	ednum_lofst	dw	0	; 2	Offset to Edit number
+	cmnt_lofst	db	0	; 1	Offset to Comment indication
+	Flags_lofst	dw	0	; 1	Offset to edit Flag
+	reel_lofst	db	6 dup(0); 6	Offset to reel number
+	mode_lofst	db	0	; 1	Offset to audio/video mode
+	type_lofst	db	0	; 1	Offset to effect type
+	efxnum_lofst	dw	0	; 2	2 byte efx number
+	efxdur_lofst	dw	0	; 2	2 byte efx duration
+	keyFlags_lofst	db	0	; 1	Offset to key Flags
+	ptcd_lofst	db	0	; 1	Offset to Drop/Non drop, Play side
+	rtcd_lofst	db	0	; 1	Offset to Drop/Non drop, Rec side
+	pin_lofst	TIMECODE <0>	; 3	Offset to Play In
+	pout_lofst	TIMECODE <0>	; 3	Offset to Play Out
+	rin_lofst	TIMECODE <0>	; 3	Offset to Record In
+	rout_lofst	TIMECODE <0>	; 3	Offset to Record Out
+	rdur_lofst	TIMECODE <0>	; 3	Offset to Duration
+	GPI_lofst	TIMECODE <0>	; 3	Offset to GPI trigger time
+	extra_lofst	db	16 dup(0);
+SPD_lofst	equ	mode_lofst
+tag_lofst	equ	GPI_lofst	; 3	Offset to speed if motion control
+EDIT_RECORD	ends
+
+;public EDIT_RECORD_SIZE
+EDIT_RECORD_SIZE equ SIZE EDIT_RECORD
+
+;================================================================
+EDLFORMAT struc
+	edlftop		dw	?
+	E_edl_Name	db	11 dup(0)
+			db	0
+	E_evn_length	db	?
+	E_emn_pad	db	?
+	E_reel_length	db	?
+	E_reel_pad	db	?
+	E_mode_length	db	?
+	E_mode_pad	db	?
+	E_axbl_pad	db	?
+	E_r_mark	db	?
+	E_Flags		db	?
+	E1_Flags	db	?
+	EDLFORMAT ends
+edlfmt_hdrlen	equ	24
+
+IRQ_keyboard	equ	00000010b
+
+V4SW_AllReset			equ	00H
+V4SW_PresetBussSource		equ	01H
+V4SW_ProgramBussSource		equ	02H
+V4SW_SelectTransitionType	equ	03H
+V4SW_SelectTransitionMode	equ	04H
+V4SW_AutoTransPlusDuration	equ	05H
+V4SW_FtbPlusDuration		equ	06H
+V4SW_KeyBussSource		equ	07H
+V4SW_LeverArmPosition		equ	08H
+V4SW_BkgMatteHueR		equ	09H
+V4SW_BkgMatteLumG		equ	0AH
+V4SW_BkgMatteSatB		equ	0BH
+V4SW_AutoTransition		equ	0CH
+V4SW_Aux1BussSource		equ	0DH
+V4SW_Aux2BussSource		equ	0EH
+
+;; Must add in an upper nibble for keyer number derived from xxstream_keynumber
+V4SW_KeySource			equ	00H
+V4SW_KeyFill			equ	01H
+V4SW_KeyType			equ	02H
+V4SW_KeyClip			equ	03H
+V4SW_KeyGain			equ	04H
+V4SW_KeyHueOpacity		equ	05H
+V4SW_KeyOnOff			equ	06H
+V4SW_KeyTopMask			equ	07H
+V4SW_KeyRightMask		equ	08H
+V4SW_KeyBottomMask		equ	09H
+V4SW_KeyLeftMask		equ	0AH
+V4SW_KeyModifier		equ	0BH
+V4SW_KeyPstPatSize		equ	0CH
+V4SW_KeysourceAndFill		equ	0DH
+
+;V4SW_Key2Source			equ	20H
+;V4SW_Key2Fill			equ	21H
+;V4SW_Key2Type			equ	22H
+;V4SW_Key2Clip			equ	23H
+;V4SW_Key2Gain			equ	24H
+;V4SW_Key2HueOpacity		equ	25H
+;V4SW_Key2OnOff			equ	26H
+;V4SW_Key2TopMask		equ	27H
+;V4SW_Key2RightMask		equ	28H
+;V4SW_Key2BottomMask		equ	29H
+;V4SW_Key2LeftMask		equ	2AH
+;V4SW_Key2Modifier		equ	2BH
+;V4SW_Key2PstPatSize		equ	2CH
+;V4SW_Key2sourceAndFill		equ	2DH
+
+;V4SW_Key3Source			equ	30H
+;V4SW_Key3Fill			equ	31H
+;V4SW_Key3Type			equ	32H
+;V4SW_Key3Clip			equ	33H
+;V4SW_Key3Gain			equ	34H
+;V4SW_Key3HueOpacity		equ	35H
+;V4SW_Key3OnOff			equ	36H
+;V4SW_Key3TopMask		equ	37H
+;V4SW_Key3RightMask		equ	38H
+;V4SW_Key3BottomMask		equ	39H
+;V4SW_Key3LeftMask		equ	3AH
+;V4SW_Key3Modifier		equ	3BH
+;V4SW_Key3PstPatSize		equ	3CH
+;V4SW_Key3sourceAndFill		equ	3DH
+
+V4SW_WipeSoftness		equ	40H
+V4SW_WipeBorder			equ	41H
+V4SW_WipeAttibutes		equ	42H
+V4SW_WipdPatternNumber		equ	43H
+V4SW_PosVPosition		equ	44H
+V4SW_PosHPosition		equ	45H
+V4SW_WipeSymmetry		equ	46H
+V4SW_WipeAspect			equ	47H
+
+V4SW_Me1MatteHueR		equ	50H
+V4SW_Me1MatteLumG		equ	51H
+V4SW_Me1MatteSatB		equ	52H
+V4SW_Me2MatteHueR		equ	53H
+V4SW_Me2MatteLumG		equ	54H
+V4SW_Me2MatteSatB		equ	55H
+V4SW_recallEmem			equ	58H
+V4SW_SaveEmem			equ	59H
+
+V4SW_CrossfadeLimit		equ	60H
+V4SW_AudFaderLevel		equ	61H
+V4SW_AudMonitorSelect		equ	62H
+V4SW_AudMonitorBussSource	equ	63H
+
+
+; V4SW_WipeAttibutes (42H)
+WIPEMODBIT_reverse		equ	00000001b
+WIPEMODBIT_soft			equ	00000010b
+WIPEMODBIT_border		equ	00000100b
+WIPEMODBIT_noedgechange		equ	00001000b
+WIPEMODBIT_positioner		equ	00010000b
+WIPEMODBIT_modulator		equ	00100000b
+WIPEMODBIT_tumble		equ	01000000b
+WIPEMODBIT_aspect		equ	10000000b
+
+EXCHANGEBUFFER STRUC
+		db	?
+
+		even
+		db	?		; LSB of Current_VTRs word
+		db	?		; MSB or Current_VTRs word
+
+		dw	?
+		dw	?
+		dw	?
+		dw	?
+		dw	?
+		dw	?
+
+		dw	?		; These point to the
+		dw	?		;  IN POINT buffer
+		dw	?		;  of the appropriate
+		dw	?		;  VTR for the EFFECT type.
+
+		db	?
+		dw	?
+		dw	?
+		db	?
+		db	?
+		dw	?
+
+		db	?	; Split AV mode
+		db	?	; Key in (1) or out (2) or none (0)
+		db	?	; Key forground machine
+		db	?	; Key background machine
+
+		TIMECODE <0>	;db	3 dup(0)	; Split edit delay
+
+;Machine Register Storage
+		even
+	VTRINOUTDUR <>
+	VTRINOUTDUR <>
+	VTRINOUTDUR <>
+	if ALLOWED_VTRS GT 3
+	VTRINOUTDUR <>
+	endif
+	if ALLOWED_VTRS GT 4
+	VTRINOUTDUR <>
+	endif
+	if ALLOWED_VTRS GT 5
+	VTRINOUTDUR <>
+	endif
+	if ALLOWED_VTRS GT 6
+	VTRINOUTDUR <>
+	endif
+	VTRINOUTDUR <>
+	VTRINOUTDUR <>
+	even
+ENDS
+
+
+;*************************************************************************
+;		L i n e   A s s i g n m e n t s
+;*************************************************************************
+
+;Row definitions
+top_line	equ	0
+last_line	equ	24
+title_line	equ	1
+
+	if ALLOWED_VTRS LT 7
+descript_line	equ	3
+	else
+descript_line	equ	2
+	endif
+
+kbd_line	equ	24
+
+	if ALLOWED_VTRS LT 7
+	lino = 5
+diagline_offset	equ	1
+	else
+	lino = 4
+diagline_offset	equ	2
+	endif
+r_line		equ	lino
+a_line		equ	lino + 1
+b_line		equ	lino + 2
+c_line		equ	lino + 3
+d_line		equ	lino + 4
+e_line		equ	lino + 5
+f_line		equ	lino + 6
+aux_line	equ	lino + ALLOWED_VTRS
+blk_line	equ	lino + ALLOWED_VTRS + 1
+
+
+listttl_line	equ	14
+list_line	equ	15		; Scroll list start
+editmode_line	equ	4
+editmode_offset	equ	0
+time_line	equ	13
+const0_line	equ	12
+timeline_line	equ	8
+lastkey_line	equ	14
+assign_line	equ	3
+edlstats_line	equ	10
+edit_lnumline	equ	9 		; Line for next edit
+evnt_lnumline	equ	10		; Line for EDIT#
+freemem_line	equ	11		; Line for free memory
+bin_line	equ	12
+comport_line	equ	18
+mode_line	equ	3		; V/A mode
+preread_line	equ	2
+transtyp_line	equ	5		;CUT, WIPE, DISSOLVE...
+transtof_line	equ	6		;To A, or FROM
+transtim_line	equ	7		; 030 frames
+Flag1_line	equ	13		; clean
+Flag2_line	equ	13		; tag
+Flag3_line	equ	13		; list
+Flag4_line	equ	13		; sort
+Flag5_line	equ	13		; gpi
+Flag6_line	equ	13		; DSK
+Flag7_line	equ	13		; PMC
+Flag8_line	equ	13		; SPD
+Flag9_line	equ	13		; Video on/off
+Flag10_line	equ	13
+listtype_line	equ	13		; Type of EDL (CMX, etc.)
+
+;----------------------------------------------------------------
+;Column Definitions
+null_offset	equ	0
+mach_offset	equ	14		; Offset for start of machine line
+in_offset	equ	24
+out_offset	equ	36
+dur_offset	equ	48
+spd_offset	equ	60		; SPD indicator
+loc_offset	equ	67		; Location indicator
+reel_offset	equ	17
+msg_offset	equ	24		; Dialog messages column (was 30)
+edstatus_offset	equ	30
+frames_offset	equ	58		; Frames disp
+from_offset	equ	62		; From messages column
+fwhat_offset	equ	70		; From what msgs column
+bin_offset	equ	0
+edlnum_offset	equ	0
+evlnum_offset	equ	0
+frenum_offset	equ	0
+kbdat_offset	equ	20
+kbdtc_offset	equ	10
+Flag1_offset	equ	14		; Tag
+Flag2_offset	equ	18		; List
+Flag3_offset	equ	22		; Clean
+Flag4_offset	equ	26		; Disk on
+Flag5_offset	equ	30		; Sort
+Flag6_offset	equ	34		; GPI
+Flag7_offset	equ	38		; SPD
+Flag8_offset	equ	42		; PMC
+Flag9_offset	equ	46		; AVon/off
+Flag10_offset	equ	52		; VLAN
+lastkey_offset	equ	63
+trans_offset	equ	0
+preread_offset	equ	1
+vdo_offset	equ	0
+fcmtyp_offset	equ	79		; FCM type, each machine RABCD
+listtype_offset	equ	0
+time_offset	equ	61
+const0_offset	equ	62
+dscript_offset	equ	17
+comport_offset	equ	55		; Column for comport display
+
+CUTSONLY_TEST macro
+	if CUTS_ONLY
+	clc
+	ret
+	endif
+ENDM
+
+; Return macros RETNZ, RETZ, RETC, RETNC
+RETNZ macro
+	jz $+3
+	ret
+ENDM
+
+RETZ macro
+	jnz $+3
+	ret
+ENDM
+
+RETC macro
+	jnc $+3
+	ret
+ENDM
+
+RETNC macro
+	jc $+3
+	ret
+ENDM
+
+JMP_C macro proc
+local jjc
+	jnc	jjc
+	jmp	proc
+jjc:
+ENDM
+
+JMP_NC macro proc
+local jjnc
+	jc	jjnc
+	jmp	proc
+jjnc:
+ENDM
+
+
+JMP_Z macro proc
+local jjz
+	jnz	jjz
+	jmp	proc
+jjz:
+ENDM
+
+JMP_NZ macro proc
+local jjnz
+	jz	jjnz
+	jmp	proc
+jjnz:
+ENDM
+
+JMP_A macro proc
+local jja
+	jbe	jja
+	jmp	proc
+jja:
+ENDM
+
+JMP_AE macro proc
+local jjae
+	jb	jjae
+	jmp	proc
+jjae:
+ENDM
+
+JMP_BE macro proc
+local jjbe
+	ja	jjbe
+	jmp	proc
+jjbe:
+ENDM
+
+;----------------------------------------------------------------
+;video macros
+;7	6	5	4	3	2	1	0
+;BL      background          Intensity   foreground
+;
+;background			forground
+;000				000		nodisplay
+;000				001		underline
+;000				111		normal
+;111				000		reverse
+
+dim_VIDEO	macro	Flags, axreg
+	if Flags
+	pushf
+	endif
+	if axreg
+	push	ax
+	endif
+
+	mov	al,Color_DIM
+	or	al,Color_BKG
+	mov	video_mode,al
+	if axreg
+	pop	ax
+	endif
+
+	if Flags
+	popf
+	endif
+endm
+
+uline_VIDEO	macro	Flags, axreg
+	if Flags
+	pushf
+	endif
+
+	if axreg
+	push	ax
+	endif
+
+	mov	al,Color_ULINE
+	or	al,Color_BKG
+	mov	video_mode,al
+	if axreg
+	pop	ax
+	endif
+
+	if Flags
+	popf
+	endif
+
+endm
+rev_VIDEO	macro	Flags, axreg
+	if Flags
+	pushf
+	endif
+
+	if axreg
+	push	ax
+	endif
+	mov	al,Color_REV
+	mov	video_mode,al
+
+	if axreg
+	pop	ax
+	endif
+
+	if Flags
+	popf
+	endif
+
+endm
+blink_VIDEO	macro	Flags, axreg
+	if Flags
+	pushf
+	endif
+
+	if axreg
+	push	ax
+	endif
+
+	mov	al,video_mode
+	or	al,10000000b
+	mov	video_mode,al
+	if axreg
+	pop	ax
+	endif
+
+	if Flags
+	popf
+	endif
+
+	endm
+blinkrev_VIDEO	macro	Flags, axreg
+	if Flags
+	pushf
+	endif
+
+	if axreg
+	push	ax
+	endif
+
+	mov	al,Color_REV
+	or	al,10000000b
+	mov	video_mode,al
+
+	if axreg
+	pop	ax
+	endif
+
+	if Flags
+	popf
+	endif
+
+	endm
+norm_VIDEO	macro	Flags, axreg
+	if Flags
+	pushf
+	endif
+
+	if axreg
+	push	ax
+	endif
+
+	mov	al,Color_NORM
+	or	al,Color_BKG
+	mov	video_mode,al
+	if axreg
+	pop	ax
+	endif
+
+	if Flags
+	popf
+	endif
+
+	endm
+
+Color_BKG_video	macro
+	push	ax
+	mov	al,Color_BKG
+	mov	video_mode,al
+	pop	ax
+	endm
+Color_GRID_video	macro
+	push	ax
+	mov	al,Color_GRID
+	mov	video_mode,al
+	pop	ax
+	endm
+Color_EDL_video	macro
+	push	ax
+	mov	al,Color_EDL
+	mov	video_mode,al
+	pop	ax
+	endm
+Color_CNTREDL_video	macro
+	push	ax
+	mov	al,Color_CNTREDL
+	mov	video_mode,al
+	pop	ax
+	endm
+Color_WRKSPCE_video	macro
+	push	ax
+	mov	al,Color_WRKSPCE
+	mov	video_mode,al
+	pop	ax
+	endm
+
+;================================================================
+;----------------------------------------------------------------
+;		ERROR MACRO
+ERROR	macro	errortype, result
+local eradr
+	mov	ERROR_OFFSET, offset eradr
+	mov	ERROR_SEG, cs
+	mov	ERROR_FlagS, &errortype or &result
+	jmp	FAR PTR _ERRORS
+eradr	=	$
+	endm
+
+;----------------------------------------------------------------
+; Jump short macro
+jmps	macro	addr
+	jmp short addr
+	endm
+
+;----------------------------------------------------------------
+; Macro to jmp to KEYBOARD from routine if carry set
+JMP2INITRET_IFCARRY	macro
+local jiri
+	jnc	jiri
+	mov	sp,Initfile_Retadr
+	ret
+jiri:
+	endm
+
+;----------------------------------------------------------------
+; I/O wait macro (thanks, Jack)
+io_wait	macro
+	jmp short $+2
+	jmp short $+2
+	endm
+
+;----------------------------------------------------------------
+; Macro to jmp to KEYBOARD from routine if carry set
+RETURN_IFCARRY	macro
+local ric
+	jnc	ric
+	cmp	ax,offset Escape_xcmd
+	jnz	ric
+	stc
+	ret
+ric:
+	endm
+
+;----------------------------------------------------------------
+; Macro to check for SECURITY KEY
+CHECKFORKEY	MACRO	Flag,value
+	local	again,check,exit
+	push	bx
+again:	cmp	byte ptr Flag,value	; SECURITY CHECK
+	jz	exit			; If ok, jump
+	mov	bx,offset check		; Set return address on error
+	jmp	new_leak
+check:	call	check_activator		; Check for key
+	jmp short again			; On error or otherwise
+	nop
+	jmp short again			; Re-check the Flag
+	nop
+exit:	pop	bx
+	ENDM
+
+
+;----------------------------------------------------------------
+; Macro to test the EDL Flags byte
+FLAGBITS macro	Fmask
+	test	es:word ptr Flags_lofst[bx],Fmask
+	endm
+
+
+;----------------------------------------------------------------
+MULTIPLY_BY	macro	MV, REGISTER
+MpByOk = FALSE
+
+if '&REGISTER' eq 'BX'
+	savereg	equ AX
+else
+	savereg	equ BX
+endif
+	if MV eq 128
+	shl	&REGISTER,7
+	MpByOk = TRUE
+	endif
+
+	if MV eq 64
+	shl	&REGISTER,6
+	MpByOk = TRUE
+	endif
+
+	if MV eq 32
+	shl	&REGISTER,5
+	MpByOk = TRUE
+	endif
+
+	if MV eq 16
+	shl	&REGISTER,1			; 8 clocks
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	MpByOk = TRUE
+	endif
+
+	if MV eq 10
+	push	&savereg			; 30 clocks
+	shl	&REGISTER,1
+	mov	&savereg,&REGISTER
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	add	&REGISTER,&savereg
+	pop	&savereg
+	MpByOk = TRUE
+	endif
+
+	if MV eq 100
+	push	&savereg			; 30 clocks
+	shl	&REGISTER,1
+	mov	&savereg,&REGISTER
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	add	&REGISTER,&savereg
+
+	shl	&REGISTER,1
+	mov	&savereg,&REGISTER
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	add	&REGISTER,&savereg
+	pop	&savereg
+	MpByOk = TRUE
+	endif
+
+
+	if MV eq 8		; 6 clocks
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	MpByOk = TRUE
+	endif
+
+	if MV eq 6
+	push	&savereg
+	mov	&savereg,&REGISTER
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	add	&REGISTER,&savereg
+	add	&REGISTER,&savereg
+	pop	&savereg
+	MpByOk = TRUE
+	endif
+
+	if MV eq 9
+	push	&savereg
+	mov	&savereg,&REGISTER
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	shl	&REGISTER,1
+	add	&REGISTER,&savereg
+	pop	&savereg
+	MpByOk = TRUE
+	endif
+
+	if MV eq 3
+	push	&savereg			; 26 clocks
+	mov	&savereg,&REGISTER
+	shl	&REGISTER,1
+	add	&REGISTER,&savereg
+	pop	&savereg
+	MpByOk = TRUE
+	endif
+
+	if MpByOk EQ FALSE
+	push	&savereg			; 26 clocks
+	push	dx
+	mov	dx,0
+	mov	&savereg,MV
+	mul	&savereg
+	pop	dx
+	pop	&savereg
+	endif
+endm
+
+
+;................................................................
+;================================================================
+TimeTable macro lsb, msb, hsb, rep, bytes, drop
+a = 0
+b = 0
+c = 0
+minutes = 0
+	rept rep
+
+	if bytes eq 3
+	db	a,b,c
+	endif
+
+	if bytes eq 2
+	db	a,b
+	endif
+
+a = a + lsb
+	if a gt 0ffh
+	  x = a - 100h
+	  a = x
+	  b = b+1
+		if b gt 0ffh
+		  x = b - 100h
+		  b = x
+		  c = c+1
+		endif
+	endif
+b = b + msb
+	if b gt 0ffh
+	  x = b - 100h
+	  b = x
+	  c = c+1
+	endif
+c = c + hsb
+
+	if drop
+minutes = minutes + 1
+	if minutes eq 10
+		a = a + 2
+			if a gt 0ffh
+			  x = a - 100h
+			  a = x
+			  b = b+1
+				if b gt 0ffh
+				  x = b - 100h
+				  b = x
+				  c = c+1
+				endif
+			endif
+	minutes = 0
+	endif
+	endif; drop
+	endm	;rept rep
+endm
+
+;................................................................
+; Makes table of all VTR in, out, and duration screen locations
+VTR_IOD_locs	macro
+vtr = 0
+	rept ALL_DEVICES
+ dw ((r_line + vtr) * 256) +  in_offset,((r_line + vtr) * 256) + out_offset,((r_line + vtr) * 256) + dur_offset
+ vtr = vtr + 1
+	endm
+	dw	0ffffh
+endm
+
+VTR_LOC_locs	macro	RowOffset
+vtr = 0
+	rept MAX_MACHINES
+	dw	((r_line + vtr + (&RowOffset/256)) * 256) + loc_offset
+vtr = vtr + 1
+	endm
+	dw	0ffffh
+endm
+
+.list

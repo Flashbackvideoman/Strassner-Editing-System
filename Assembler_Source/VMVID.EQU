@@ -1,0 +1,78 @@
+; Last revised: 2-22-1995, 11:12:28   (C)1989-1995 Norman H. Strassner
+; VMVID.EQU
+; Equates file for VMVID.ASM
+ESAM2_read	equ	01000000b	; 40h
+ESAM2_write	equ	10000000b	; 80h
+
+; Switcher commands:
+; Basic READ and WRITE command bits
+X_read		equ	01000000b	; 40h
+X_write		equ	11000000b	; C0h
+
+; The following get ANDed to X_READ or X_WRITE command code
+X_program_bus	equ	1	; ORed with X_write to select
+X_preset_bus	equ	2	;  and active crosspoint
+X_key1_bus	equ	3	;  on the SB_xxx bus.
+X_key2_bus	equ	4	; Keyer 2
+X_analog	equ	5	; Analog control
+X_pbl_on	equ	6	; Push button on
+X_pbl_off	equ	7	; Push button off
+X_pattern	equ	8	; Pattern type
+X_spare1	equ	9	; ** NO COMMAND **
+X_transition	equ	10	; Transition mode for background and key buttons
+X_autorate	equ	11	; Autotrans rate
+X_dskrate	equ	12	; DSK rate
+X_ftbrate	equ	13	; FTB rate
+X_keyermem	equ	14	; Key memory
+X_lrnemem	equ	15	; Learn E-MEM
+X_rclemem	equ	16	; Recall E-MEM
+X_version	equ	17	; Software version
+X_fldmode	equ	18	; Field mode
+X_statupd	equ	19	; Status Update
+X_allstop	equ	20	; All stop command
+X_lampstat	equ	21	; Lamp map
+X_pushbutton	equ	22	; Pushbutton select
+X_xferemem	equ	23	; Transfer E-MEM register
+AX_monitor170	equ	24	; Monitor mode for AMX170
+; Alladin extensions
+X_goto_start	equ	25
+X_goto_end	equ	26
+X_step_fwd	equ	27
+X_step_rev	equ	28
+X_goto_frame	equ	29
+
+; ESAM commands
+X_MonitorMode	equ	24	; Monitor Mode
+X_MonitorVTR	equ	25	; Monitor Machine
+
+VBUTTON100V	macro	BtnName, BtnVal
+BtnName	equ	$ - gvg100_pbv
+	db	BtnVal
+ENDM
+VBUTTON100A	macro	BtnName, BtnVal
+BtnName	equ	$ - gvg100_pba
+	db	BtnVal
+ENDM
+
+
+; Analog_Control_Descriptor macro
+ACD struc
+	READ_RTN	dw	0
+	BTN		db	0
+	VLNCMD		db	0
+	BITS		db	0
+	EFXADR		db	0
+	UPDOWN		db	0
+	CRNTVAL		dw	0
+ACD ends
+
+A_C_D macro READ_RTN, BTN, VLNCMD, BITS, EFXADR, UPDOWN, CRNTVAL
+	dw	READ_RTN
+	db	BTN
+	db	VLNCMD
+	db	BITS			
+	db	EFXADR	;; 0 if DSK, 0ffh to use EFFECTS_ADDRESS
+	db	UPDOWN
+	dw	CRNTVAL
+endm
+
