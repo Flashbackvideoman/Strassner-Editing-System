@@ -1,0 +1,26 @@
+
+bs (must be lower case) BINARY STATUS:
+
+Format: bs #   where # is an optional node number
+
+returns: 3 bytes binary location data
+         1 byte status...note that error number is returned once only.
+                         they are cleared before next status request
+         1 byte of flags
+            bit 0 set if code is valid
+            bit 1 set if drop frame
+
+---------------------------------------------------------------------------
+
+ek (must be lower case) EDIT CLOCK
+
+fromat: ek
+
+returns: 3 bytes binary edit clock
+
+this edit clock gives information about where everything is in a sequence.
+Ask for it about the middle of a frame and you'll get reliable timing info.
+
+example: if preroll is 5 seconds and you want to trigger something at the
+inpoint, trigger on the edit clock equaling 5 seconds.
+

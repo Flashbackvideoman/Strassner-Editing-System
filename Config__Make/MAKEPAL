@@ -1,0 +1,12 @@
+REM make pro
+sesopts NTSC=FALSE CUTS=FALSE VTRS=7
+CALL MAKE -fRELEASE.MAK -B
+rem pause
+copy vm.exe \paldist\sespro.sce
+copy sesmsg.ovr \paldist\sespro.sco
+
+
+sesopts NTSC=TRUE CUTS=FALSE VTRS=7
+REM make local version
+CALL MAKE -B >>make.log
+

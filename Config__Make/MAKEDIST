@@ -1,0 +1,41 @@
+REM make single source
+sesopts NTSC=FALSE CUTS=TRUE VTRS=5
+CALL MAKE -fRELEASE.MAK -B >make.log
+copy vm.exe \PALDIST\sessngl.sce
+copy sesmsg.ovr \PALDIST\sessngl.sco
+
+REM make multiple source
+sesopts NTSC=FALSE CUTS=FALSE VTRS=5
+CALL MAKE -fRELEASE.MAK -B >>make.log
+copy vm.exe \PALDIST\sesmult.sce
+copy sesmsg.ovr \PALDIST\sesmult.sco
+
+REM make pro
+sesopts NTSC=FALSE CUTS=FALSE VTRS=7
+CALL MAKE -fRELEASE.MAK -B >>make.log
+copy vm.exe \PALDIST\sespro.sce
+copy sesmsg.ovr \PALDIST\sespro.sco
+
+REM ---------------------------
+
+REM make single source
+sesopts NTSC=TRUE CUTS=TRUE VTRS=5
+CALL MAKE -fRELEASE.MAK -B >>make.log
+copy vm.exe \dist8\sessngl.sce
+copy sesmsg.ovr \dist8\sessngl.sco
+
+REM make multiple source
+sesopts NTSC=TRUE CUTS=FALSE VTRS=5
+CALL MAKE -fRELEASE.MAK -B >>make.log
+copy vm.exe \dist8\sesmult.sce
+copy sesmsg.ovr \dist8\sesmult.sco
+
+REM make pro
+sesopts NTSC=TRUE CUTS=FALSE VTRS=7
+CALL MAKE -fRELEASE.MAK -B >>make.log
+copy vm.exe \dist8\sespro.sce
+copy sesmsg.ovr \dist8\sespro.sco
+
+REM make local version
+CALL MAKE -B >>make.log
+
